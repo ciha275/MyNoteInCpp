@@ -1,0 +1,83 @@
+class Animal
+{
+public:
+	virtual void speak()
+	{
+		cout << "动物在说话" << endl;
+	}
+};
+
+class Cat : public Animal
+{
+public:
+	void speak()
+	{
+		cout << "猫在说话" << endl;
+	}
+};
+
+添加virtual关键字后
+Animal内部结构中，将会有一个vfptr，添加一个vftable虚函数表，表中存放虚函数的地址，&Animal::speak
+virtual function pointer        virtual function table
+虚函数表指针                    虚函数表
+
+当子类Cat继承，vfptr和虚函数表都继承
+本来直接继承的vfptr理应指向的是父类的虚函数表，但在对象创建，调用构造函数时，将所有的虚函数表指针都指向自己的虚函数表，此操作不可见
+测试，自己写构造函数Cat() {cout << "moren of cat" << endl;}和Cat(int a) {cout << "youcan of cat" << endl;}，一样正常执行
+当子类Cat写了父类的同名函数，将会覆盖虚函数表中的函数，即 &Animal::speak 被覆盖为 &Cat::speak，这种写法叫重写
+重写，必须 返回值、参数个数、类型、顺序 都相同
+
+Animal* animal = new Cat;
+animal.speak();          //这也是多态，将会是“猫在说话”
+
+/******************可通过visual studio开发人员工具看内部结构******************/
+/******************(Devoloper Powershell for VS 2019)  （PS：cls 清空屏幕）******************/
+首先进入文件所在目录  cd G:\change_job\AQL_projects\share_coding\07-Polymorphism_And_ItsPrinciple
+dir 可查看当前目录下的文件
+看内部结构    cl /d1 reportSingleClassLayoutAnimal Polymorphism_And_ItsPrinciple.cpp
+/*******************Animal内部结构*******************/
+class Animal    size(4):
+        +---
+ 0      | {vfptr}
+        +---
+
+Animal::$vftable@:
+        | &Animal_meta
+        |  0
+ 0      | &Animal::speak
+/*******************Animal内部结构*******************/
+/*******************Cat内部结构*******************/
+class Cat       size(4):
+        +---
+ 0      | +--- (base class Animal)
+ 0      | | {vfptr}
+        | +---
+        +---
+
+Cat::$vftable@:
+        | &Cat_meta
+        |  0
+ 0      | &Cat::speak
+/*******************Cat内部结构*******************/
+
+
+/*******************绕点：通过指针来调用虚函数表中的函数*******************/
+现在父类有两个虚函数，子类也重写了这俩
+virtual speak();
+virtual eat();
+
+Animal* animal = new Cat;
+取出想调用的函数的地址：
+1、首先animal是个指针，指向这个类对象，（这句有点不确定→）是对象内部存储的首地址
+2、对象的内部存储地址是个int型数组，所以强转 (int*)animal，此时指向了内部存储的首地址
+3、（见上面的内部结构）这个类中就一个vfptr，所以首地址内容就是vfptr，此时 *(int*)animal 就是取首地址内容，即就是vfptr
+4、虚函数表指针vfptr就是指向虚函数表，因为虚函数表这些地址还是一个int型数组，所以强转，(int*)*(int*)animal，就是指向虚函数表首地址的指针
+5、(int*)*(int*)animal+1，+1改变步长，指向了虚函数表的第二个地址
+6、再取第二个地址内容， *((int*)*(int*)animal +1)，即第二个函数的地址  （记住！虚函数表中存的是函数的地址）
+调用函数：
+1、首先将这个地址 (*((int*)*(int*)animal +1)) 强转为对应函数的指针( (void(*)()) (*((int*)*(int*)animal +1)) )
+2、通过函数指针调用函数 ( (void(*)()) (*((int*)*(int*)animal +1)) )();
+PS: (void(*)()) 的理解，强制转换为“返回值是void的函数的指针”类型
+PSS：过程中是转换为了函数的指针（记为fp），理应 *fp() 表示调用函数，但编译器优化了，允许fp()方式调用
+
+
